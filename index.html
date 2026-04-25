@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pure LSP Calculator</title>
+    <style>
+        body { font-family: monospace; background: #1e1e1e; color: white; padding: 20px; }
+        .editor-container { position: relative; width: 500px; height: 100px; font-size: 18px; }
+        
+        /* The Textarea and the Backdrop must have identical styling */
+        textarea, .backdrop {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            padding: 10px; border: 1px solid #444;
+            font-family: inherit; font-size: inherit; line-height: 1.5;
+            white-space: pre-wrap; word-wrap: break-word;
+            box-sizing: border-box; background: transparent;
+        }
+
+        textarea {
+            color: transparent; caret-color: white;
+            resize: none; outline: none; z-index: 2;
+        }
+
+        .backdrop { color: #ccc; z-index: 1; pointer-events: none; }
+        
+        /* The "Red Squiggly" style */
+        .error { border-bottom: 2px wavy red; }
+        .info { color: #555; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h3>Calculator LSP (Pure JS)</h3>
+    <p>Type a math expression (e.g., <code>1 + (2 * a)</code>)</p>
+
+    <div class="editor-container">
+        <div id="backdrop" class="backdrop"></div>
+        <textarea id="editor" spellcheck="false"></textarea>
+    </div>
+    <div id="status" class="info">Server: Starting...</div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const backdrop = document.getElementById('backdrop');
+        const status = document.getElementById('status');
+        const worker = new Worker('worker.js');
+
+        // 1. Initialize LSP Handshake
+        worker.postMessage({
+            jsonrpc: "2.0",
+            id: 1,
+            method: 'initialize',
+            params: {}
+        });
+
+        // 2. Listen for user input
+        editor.addEventListener('input', () => {
+            const text = editor.value;
+            backdrop.innerText = text; // Sync text to background
+
+            // Send LSP 'didChange' notification
+            worker.postMessage({
+                jsonrpc: "2.0",
+                method: 'textDocument/didChange',
+                params: {
+                    textDocument: { uri: 'file://test.calc' },
+                    contentChanges: [{ text }]
+                }
+            });
+        });
+
+        // 3. Handle LSP messages from "Server"
+        worker.onmessage = (e) => {
+            const { method, params, result, id } = e.data;
+
+            if (id === 1) status.innerText = "Server: Ready (Calculator Loaded)";
+
+            // Handle Diagnostics (Error Highlighting)
+            if (method === 'textDocument/publishDiagnostics') {
+                renderDiagnostics(params.diagnostics);
+            }
+        };
+
+        function renderDiagnostics(diagnostics) {
+            const text = editor.value;
+            if (diagnostics.length === 0) {
+                backdrop.innerHTML = text;
+                return;
+            }
+
+            // Simple visualizer: Wrap the error character in a span
+            // Note: This is a basic implementation for a single line
+            let highlighted = text;
+            // Sort backwards to not mess up indices
+            diagnostics.sort((a,b) => b.range.start.character - a.range.start.character);
+            
+            diagnostics.forEach(d => {
+                const start = d.range.start.character;
+                const end = d.range.end.character;
+                highlighted = highlighted.slice(0, start) + 
+                    `<span class="error" title="${d.message}">` + 
+                    highlighted.slice(start, end) + 
+                    `</span>` + 
+                    highlighted.slice(end);
+            });
+            backdrop.innerHTML = highlighted;
+        }
+    </script>
+</body>
+</html>
