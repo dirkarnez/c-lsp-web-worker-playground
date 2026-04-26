@@ -1,3 +1,6 @@
 [c-lsp-web-worker-playground](https://dirkarnez.github.io/c-lsp-web-worker-playground)
 ======================================================================================
 From [alt-romes/calculator-c-parser: A simple implementation of a parser and its use to calculate simple mathematical expressions](https://github.com/alt-romes/calculator-c-parser)
+
+### LSP Specification
+- [Specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)
